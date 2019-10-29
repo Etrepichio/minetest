@@ -1,5 +1,9 @@
 package models
 
+const (
+	ErrNoNameGame = "Game doesnt have a name."
+)
+
 //Cell defines the different states of a single Cell
 type Cell struct {
 	Clicked bool `json:"clicked"` //Clicked specifies wether the Cell has been clicked or "discovered"
