@@ -3,6 +3,8 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 
 	"github.com/go-chi/chi"
@@ -10,6 +12,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	httptransport "github.com/go-kit/kit/transport/http"
 	"github.com/minesweeper/pkg/endpoints"
+	"github.com/minesweeper/pkg/models"
 )
 
 // NewHTTPHandler returns a handler that makes a set of endpoints available on
@@ -25,6 +28,24 @@ func NewHTTPHandler(endpoints endpoints.Endpoints, logger log.Logger) http.Handl
 		endpoints.GetMinesweeperEndpoint,
 		DecodeGetMinesweeperRequest,
 		EncodeGetMinesweeperResponse,
+		append(options)...,
+	))
+	c.Method(http.MethodPost, "/minesweeper/games", httptransport.NewServer(
+		endpoints.NewGameEndpoint,
+		DecodeNewGameRequest,
+		EncodeNewGameResponse,
+		append(options)...,
+	))
+	c.Method(http.MethodGet, "/minesweeper/games/{name}", httptransport.NewServer(
+		endpoints.LoadGameEndpoint,
+		DecodeLoadGameRequest,
+		EncodeLoadGameResponse,
+		append(options)...,
+	))
+	c.Method(http.MethodPut, "/minesweeper/games", httptransport.NewServer(
+		endpoints.ClickEndpoint,
+		DecodeClickRequest,
+		EncodeClickResponse,
 		append(options)...,
 	))
 	return c
@@ -65,4 +86,92 @@ func EncodeGetMinesweeperResponse(_ context.Context, w http.ResponseWriter, resp
 	// create json
 	err = json.NewEncoder(w).Encode(res.Res)
 	return err
+}
+
+func DecodeNewGameRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var req models.Game
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err == io.EOF {
+			return nil, errors.New("Missing Body Content")
+		} else if err == io.ErrUnexpectedEOF {
+			return nil, errors.New("Malformed Body Content")
+		} else {
+			return nil, err
+		}
+	}
+
+	return endpoints.NewGameRequest{
+		Req: &req,
+	}, nil
+}
+
+func EncodeNewGameResponse(_ context.Context, w http.ResponseWriter, response interface{}) (err error) {
+
+	// cast response to known type
+	res, ok := response.(endpoints.NewGameResponse)
+	if !ok {
+		return errors.New("Error encoding NewGame response")
+	}
+
+	if res.Err != nil {
+		return res.Err
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	return err
+}
+
+func DecodeLoadGameRequest(_ context.Context, r *http.Request) (interface{}, error) {
+
+	name := chi.URLParam(r, "name")
+	return endpoints.LoadGameRequest{
+		Req: name,
+	}, nil
+}
+
+func EncodeLoadGameResponse(_ context.Context, w http.ResponseWriter, response interface{}) (err error) {
+
+	// cast response to known type
+	res, ok := response.(endpoints.LoadGameResponse)
+	if !ok {
+		return errors.New("Error encoding LoadGame response")
+	}
+
+	if res.Err != nil {
+		return res.Err
+	}
+
+	return json.NewEncoder(w).Encode(res.Res)
+}
+
+func DecodeClickRequest(_ context.Context, r *http.Request) (interface{}, error) {
+
+	var req models.ClickRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err == io.EOF {
+			return nil, errors.New("Missing Body Content")
+		} else if err == io.ErrUnexpectedEOF {
+			return nil, errors.New("Malformed Body Content")
+		} else {
+			return nil, err
+		}
+	}
+	return endpoints.ClickRequest{
+		Req: req,
+	}, nil
+}
+
+func EncodeClickResponse(_ context.Context, w http.ResponseWriter, response interface{}) (err error) {
+
+	// cast response to known type
+	res, ok := response.(endpoints.ClickResponse)
+	if !ok {
+		return errors.New("Error encoding LoadGame response")
+	}
+
+	if res.Err != nil {
+		return res.Err
+	}
+
+	return json.NewEncoder(w).Encode(res.Res)
 }

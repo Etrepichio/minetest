@@ -124,7 +124,7 @@ func (m minesweeper) LoadGame(ctx context.Context, name string) (res *models.Gam
 
 	//Here we should load the game
 
-	return nil, nil
+	return &models.Game{}, nil
 
 }
 
@@ -142,10 +142,10 @@ func (m minesweeper) Click(ctx context.Context, req models.ClickRequest) (res *m
 
 	if err := clickCell(game, req.Row, req.Column); err != nil {
 
-		return nil, err
+		return &models.Game{}, err
 	}
 	if err := m.SaveGame(ctx, game); err != nil {
-		return nil, err
+		return &models.Game{}, err
 	}
 
 	return game, nil
