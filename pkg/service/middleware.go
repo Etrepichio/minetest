@@ -81,7 +81,7 @@ func (mw loggingMiddleware) SaveGame(ctx context.Context, game *models.Game) (er
 	return mw.next.SaveGame(ctx, game)
 }
 
-func (mw loggingMiddleware) Click(ctx context.Context, name string, rowClick int, columnClick int) (res *models.Game, err error) {
+func (mw loggingMiddleware) Click(ctx context.Context, req models.ClickRequest) (res *models.Game, err error) {
 
 	// defer logging to log response
 	defer func() {
@@ -92,6 +92,6 @@ func (mw loggingMiddleware) Click(ctx context.Context, name string, rowClick int
 
 	// call Minesweepersvc to invoke
 	// next middleware (or service)
-	return mw.next.Click(ctx, name, rowClick, columnClick)
+	return mw.next.Click(ctx, req)
 
 }

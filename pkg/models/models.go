@@ -25,3 +25,9 @@ type Game struct {
 	Mines      int       `json:"mines"`           //How many mines the board has
 	Status     string    `json:"status"`          //Status of the current game. In progress, Game Over, Victory.
 }
+
+type ClickRequest struct {
+	Name   string `json:"name"`   //Name acts as an identifier of the Game
+	Row    int    `json:"row"`    //Which row is the player clicking
+	Column int    `json:"column"` //Which column is the player clicking
+}

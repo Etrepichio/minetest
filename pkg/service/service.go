@@ -24,7 +24,7 @@ type Minesweepersvc interface {
 	NewGame(ctx context.Context, game *models.Game) (err error)
 	LoadGame(ctx context.Context, name string) (res *models.Game, err error)
 	SaveGame(ctx context.Context, game *models.Game) (err error)
-	Click(ctx context.Context, name string, rowClick int, columnClick int) (res *models.Game, err error)
+	Click(ctx context.Context, req models.ClickRequest) (res *models.Game, err error)
 }
 
 // MinesweeperResponse is returned from the
@@ -135,12 +135,12 @@ func (m minesweeper) SaveGame(ctx context.Context, game *models.Game) (err error
 	return nil
 }
 
-func (m minesweeper) Click(ctx context.Context, name string, rowClick int, columnClick int) (res *models.Game, err error) {
+func (m minesweeper) Click(ctx context.Context, req models.ClickRequest) (res *models.Game, err error) {
 
 	//Here we add the logic, calculation of game over or victory, etc.
-	game, err := m.LoadGame(ctx, name)
+	game, err := m.LoadGame(ctx, req.Name)
 
-	if err := clickCell(game, rowClick, columnClick); err != nil {
+	if err := clickCell(game, req.Row, req.Column); err != nil {
 
 		return nil, err
 	}
