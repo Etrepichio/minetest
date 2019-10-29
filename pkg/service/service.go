@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"math/rand"
 
 	"github.com/go-kit/kit/log"
 	"github.com/minesweeper/pkg/models"
@@ -23,7 +24,7 @@ type Minesweepersvc interface {
 	NewGame(ctx context.Context, game *models.Game) (err error)
 	LoadGame(ctx context.Context, name string) (res *models.Game, err error)
 	SaveGame(ctx context.Context, game *models.Game) (err error)
-	Click(ctx context.Context, game *models.Game, rowClick int, columnClick int) (res *models.Game, err error)
+	Click(ctx context.Context, name string, rowClick int, columnClick int) (res *models.Game, err error)
 }
 
 // MinesweeperResponse is returned from the
@@ -104,8 +105,11 @@ func (m minesweeper) NewGame(ctx context.Context, game *models.Game) (err error)
 	if game.Columns > maxColumns {
 		game.Columns = maxColumns
 	}
-	game.Status = "new"
 
+	if err := newBoard(game); err != nil {
+		return err
+	}
+	game.Status = "new"
 	//Here we should save the game in order to load it in the future
 
 	return nil
@@ -131,9 +135,94 @@ func (m minesweeper) SaveGame(ctx context.Context, game *models.Game) (err error
 	return nil
 }
 
-func (m minesweeper) Click(ctx context.Context, game *models.Game, rowClick int, columnClick int) (res *models.Game, err error) {
+func (m minesweeper) Click(ctx context.Context, name string, rowClick int, columnClick int) (res *models.Game, err error) {
 
 	//Here we add the logic, calculation of game over or victory, etc.
+	game, err := m.LoadGame(ctx, name)
 
-	return nil, nil
+	if err := clickCell(game, rowClick, columnClick); err != nil {
+
+		return nil, err
+	}
+	if err := m.SaveGame(ctx, game); err != nil {
+		return nil, err
+	}
+
+	return game, nil
+}
+
+func clickCell(game *models.Game, row int, column int) error {
+
+	if row > game.Rows || row < 0 {
+		return errors.New("invalid row")
+	}
+	if column > game.Columns || column < 0 {
+		return errors.New("invalid column")
+	}
+
+	if game.Board[row][column].Clicked == true {
+		return errors.New("Already clicked")
+	}
+	//Check for game loss
+	if game.Board[row][column].Mine == true {
+		game.Status = "game_over"
+		return nil
+	}
+	game.Board[row][column].Clicked = true
+
+	game.Discovered++
+
+	//Check for game win
+	if game.Discovered+game.Mines == game.Rows*game.Columns {
+		game.Status = "victory"
+		return nil
+	}
+	return nil
+
+}
+
+//newBoard populates the board with mines and numbers
+func newBoard(game *models.Game) error {
+
+	//First we populate the board with mines
+	numCells := game.Rows * game.Columns
+	cells := make(models.CellRow, numCells)
+	i := 0
+	for i < game.Mines {
+		spot := rand.Intn(numCells)
+		if cells[spot].Mine == false {
+			cells[spot].Mine = true
+			i++
+		}
+	}
+
+	game.Board = make([]models.CellRow, game.Rows)
+
+	for c := range game.Board {
+		game.Board[c] = cells[c*game.Columns : ((c + 1) * game.Columns)]
+	}
+
+	for i, row := range game.Board {
+		for j, cell := range row {
+			if cell.Mine == true {
+				setNumbers(game, i, j)
+			}
+		}
+
+	}
+	return nil
+}
+
+func setNumbers(game *models.Game, i int, j int) {
+
+	for x := i - 1; x < i+2; x++ {
+		for y := j - 1; y < j+2; y++ {
+			if !((x < 0) || (x > game.Rows-1) || (y < 0) || (y > game.Columns-1)) {
+				game.Board[x][y].Number++
+			}
+		}
+	}
+	//This is done so we dont have to check every loop for this
+	game.Board[i][j].Number = 0
+
 }
