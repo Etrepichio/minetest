@@ -32,11 +32,11 @@ type Minesweepersvc interface {
 // MinesweeperResponse is returned from the
 // GetMinesweeper service method.
 type MinesweeperResponse struct {
-	Name string `json:"name,omit_empty"` // Name of the
+	Name string `json:"name,omit_empty"`
 }
 
-// minesweeper implements the
-// Minesweepersvc interface
+// minesweeper implements the Minesweepersvc interface
+// it also contains a logger and a db to store games.
 type minesweeper struct {
 	logger      log.Logger
 	minesweeper MinesweeperResponse
@@ -52,7 +52,6 @@ func NewBasicService(logger log.Logger) Minesweepersvc {
 	if err != nil {
 		logger.Log("method", "NewBasicService", "error", err)
 	}
-
 	return minesweeper{
 		logger:      logger,
 		minesweeper: sweeper,
@@ -89,6 +88,8 @@ func retrieveSweeper() (mr MinesweeperResponse, err error) {
 	return w, nil
 }
 
+//NewGame sets default values in the new game. Also creates the board and populates it with numbers and mines.
+//Once the game is created, its status is "new", and is inserted in the db for future use
 func (m minesweeper) NewGame(ctx context.Context, game *models.Game) (err error) {
 
 	if game.Name == "" {
@@ -122,6 +123,7 @@ func (m minesweeper) NewGame(ctx context.Context, game *models.Game) (err error)
 
 }
 
+//LoadGame grabs and return a game by its name from the db
 func (m minesweeper) LoadGame(ctx context.Context, name string) (res *models.Game, err error) {
 
 	if name == "" {
@@ -137,6 +139,7 @@ func (m minesweeper) LoadGame(ctx context.Context, name string) (res *models.Gam
 
 }
 
+//SaveGame update the current status of the game into the db. Used when the user makes moves (Click)
 func (m minesweeper) SaveGame(ctx context.Context, game *models.Game) (err error) {
 
 	if err := m.db.UpdateGame(game); err != nil {
@@ -146,15 +149,21 @@ func (m minesweeper) SaveGame(ctx context.Context, game *models.Game) (err error
 	return nil
 }
 
+//Click updates the game according to the cell the user has clicked.
 func (m minesweeper) Click(ctx context.Context, req models.ClickRequest) (res *models.Game, err error) {
 
-	//Here we add the logic, calculation of game over or victory, etc.
+	//First load the game from the db
 	game, err := m.LoadGame(ctx, req.Name)
 
+	if err != nil {
+		return &models.Game{}, err
+	}
+	//click the specific cell
 	if err := clickCell(game, req.Row, req.Column); err != nil {
 
 		return &models.Game{}, err
 	}
+	//update the game to its new state
 	if err := m.SaveGame(ctx, game); err != nil {
 		return &models.Game{}, err
 	}
@@ -163,13 +172,14 @@ func (m minesweeper) Click(ctx context.Context, req models.ClickRequest) (res *m
 }
 
 func clickCell(game *models.Game, row int, column int) error {
-
+	//Check that row and column arent out of bounds
 	if row > game.Rows-1 || row < 0 {
 		return errors.New("invalid row")
 	}
 	if column > game.Columns-1 || column < 0 {
 		return errors.New("invalid column")
 	}
+	//Checking if Cell was already clicked
 	if game.Board[row][column].Clicked == true {
 		return errors.New("Already clicked")
 	}
@@ -179,8 +189,12 @@ func clickCell(game *models.Game, row int, column int) error {
 		return nil
 	}
 	game.Board[row][column].Clicked = true
-
+	//Discovered tracks how many cells have been clicked (used for win condition)
 	game.Discovered++
+	//If the Cell has 0 mines in its proximity, we click all around it, recursively
+	//This means we do the clickCell() function 9 times inside itself (all surrounding cells)
+	//Complexity of this would be O(9^n), but the conditions of out of bounds and already clicked
+	//mitigate the impact this would have in performance.
 
 	if game.Board[row][column].Number == 0 {
 		for x := row - 1; x < row+2; x++ {
@@ -207,6 +221,7 @@ func newBoard(game *models.Game) error {
 	cells := make(models.CellRow, numCells)
 	i := 0
 	for i < game.Mines {
+		//Get random spot for mines
 		rand.Seed(time.Now().UnixNano())
 		spot := rand.Intn(numCells)
 		if cells[spot].Mine == false {
@@ -216,11 +231,11 @@ func newBoard(game *models.Game) error {
 	}
 
 	game.Board = make([]models.CellRow, game.Rows)
-
+	//Fit in the final board each of the cell rows
 	for c := range game.Board {
 		game.Board[c] = cells[c*game.Columns : ((c + 1) * game.Columns)]
 	}
-
+	//O(n^2)
 	for i, row := range game.Board {
 		for j, cell := range row {
 			if cell.Mine == true {
@@ -232,6 +247,8 @@ func newBoard(game *models.Game) error {
 	return nil
 }
 
+//setNumbers pluses by 1 the Number value in each cell surrounding a mine
+//when every mine has his neighbours's numbers setted, board is ready
 func setNumbers(game *models.Game, i int, j int) {
 
 	for x := i - 1; x < i+2; x++ {

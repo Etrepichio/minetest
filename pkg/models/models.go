@@ -26,6 +26,8 @@ type Game struct {
 	Status     string    `json:"status"`          //Status of the current game. In progress, Game Over, Victory.
 }
 
+//ClickRequest constains the information related to one "movement" or "action" taken by the player.
+//In this case, its a click in one of the cells.
 type ClickRequest struct {
 	Name   string `json:"name"`   //Name acts as an identifier of the Game
 	Row    int    `json:"row"`    //Which row is the player clicking

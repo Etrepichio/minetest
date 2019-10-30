@@ -38,6 +38,11 @@ fi
 
 dep ensure -v
 
+## run go unit_test
+echo Running go test...
+go test -v $(go list ./... | grep -v /vendor/)
+
+
 ## Download bindata for db migrations
 if [ -z "$(which go-bindata)" ]; then
   echo Installing go-bindata...
