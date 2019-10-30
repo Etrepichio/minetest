@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/minesweeper/pkg/db"
 	"github.com/minesweeper/pkg/models"
 )
 
@@ -38,6 +40,7 @@ type MinesweeperResponse struct {
 type minesweeper struct {
 	logger      log.Logger
 	minesweeper MinesweeperResponse
+	db          db.MineDBManager
 }
 
 // NewBasicService returns an instance of
@@ -53,6 +56,7 @@ func NewBasicService(logger log.Logger) Minesweepersvc {
 	return minesweeper{
 		logger:      logger,
 		minesweeper: sweeper,
+		db:          db.New(),
 	}
 }
 
@@ -111,7 +115,9 @@ func (m minesweeper) NewGame(ctx context.Context, game *models.Game) (err error)
 	}
 	game.Status = "new"
 	//Here we should save the game in order to load it in the future
-
+	if err := m.db.InsertGame(game); err != nil {
+		return err
+	}
 	return nil
 
 }
@@ -123,14 +129,19 @@ func (m minesweeper) LoadGame(ctx context.Context, name string) (res *models.Gam
 	}
 
 	//Here we should load the game
-
-	return &models.Game{}, nil
+	game, err := m.db.GetGame(name)
+	if err != nil {
+		return &models.Game{}, err
+	}
+	return game, nil
 
 }
 
 func (m minesweeper) SaveGame(ctx context.Context, game *models.Game) (err error) {
 
-	//Here we save the game
+	if err := m.db.UpdateGame(game); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -153,13 +164,12 @@ func (m minesweeper) Click(ctx context.Context, req models.ClickRequest) (res *m
 
 func clickCell(game *models.Game, row int, column int) error {
 
-	if row > game.Rows || row < 0 {
+	if row > game.Rows-1 || row < 0 {
 		return errors.New("invalid row")
 	}
-	if column > game.Columns || column < 0 {
+	if column > game.Columns-1 || column < 0 {
 		return errors.New("invalid column")
 	}
-
 	if game.Board[row][column].Clicked == true {
 		return errors.New("Already clicked")
 	}
@@ -171,6 +181,14 @@ func clickCell(game *models.Game, row int, column int) error {
 	game.Board[row][column].Clicked = true
 
 	game.Discovered++
+
+	if game.Board[row][column].Number == 0 {
+		for x := row - 1; x < row+2; x++ {
+			for y := column - 1; y < column+2; y++ {
+				clickCell(game, x, y)
+			}
+		}
+	}
 
 	//Check for game win
 	if game.Discovered+game.Mines == game.Rows*game.Columns {
@@ -189,6 +207,7 @@ func newBoard(game *models.Game) error {
 	cells := make(models.CellRow, numCells)
 	i := 0
 	for i < game.Mines {
+		rand.Seed(time.Now().UnixNano())
 		spot := rand.Intn(numCells)
 		if cells[spot].Mine == false {
 			cells[spot].Mine = true
@@ -217,12 +236,10 @@ func setNumbers(game *models.Game, i int, j int) {
 
 	for x := i - 1; x < i+2; x++ {
 		for y := j - 1; y < j+2; y++ {
-			if !((x < 0) || (x > game.Rows-1) || (y < 0) || (y > game.Columns-1)) {
+			if !((x < 0) || (x > game.Rows-1) || (y < 0) || (y > game.Columns-1)) && !((x == i) && (y == j)) {
 				game.Board[x][y].Number++
 			}
 		}
 	}
-	//This is done so we dont have to check every loop for this
-	game.Board[i][j].Number = 0
 
 }
