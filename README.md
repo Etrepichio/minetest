@@ -17,6 +17,7 @@ Currently deployed into an aws ec2 instance.
 ### Endpoints
 
 Create Game
+
 This endpoint creates a new game and stores it locally for future uses.
 Name is the identifier of each game, rows and columns specifies the size of the board, discovered is the number of current clicked cells
 Mines let us set any quantity of them.  
@@ -39,6 +40,7 @@ This request should receive a 201 response (Created).
  ----------------------------------------------------------------------------------------------------------------------------------------
 
 Load Game
+
 This endpoint search the desired game in the local storage and return it in Json format.
 The response is an object containing properties of the game as well as the state of it.
 
@@ -56,6 +58,7 @@ This information would be used for visual purposes, such as painting unvisited/v
 -----------------------------------------------------------------------------------------------------------------------------------------
 
 Click
+
 This endpoint allows to interact with the current state of the game. Each request represent a click in one of the cells of the grid.
 When a cell without nearby mines is clicked, all the surrounded cells are clicked, like the original minesweeper.
 After each click the state of the game is checked. In the response (A JSON object) the state of the game can be seen, whether is still continuing, 
