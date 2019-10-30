@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  minesweeper.app:
+    build: ./app
+    ports:
+      - 48080:8080
+    networks:
+      - app-network
+    volumes:
+      - ../../minesweeper:/bin/minesweeper
+      - ./app/run_app.sh:/bin/run_app.sh
+
+networks:
+  app-network:
+    external:
+      name: local-docker-dev-network
